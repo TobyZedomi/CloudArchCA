@@ -1,0 +1,281 @@
+package movieSystem.controller;
+
+import jakarta.servlet.http.HttpSession;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import movieSystem.business.*;
+import movieSystem.persistence.*;
+import movieSystem.service.MovieService;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Controller
+@Slf4j
+public class MovieTestController {
+
+    @Autowired
+    private MovieService movieService;
+
+
+
+    /**
+     * Getting movie videos based on the movie id entered
+     *
+     * @param model   holds the attributes for the view
+     * @param id      is teh movie id being searched
+     * @param session holds the logged in users details
+     * @return videos page if te videos exist and noVideo page if there are no videos for that movie
+     */
+
+
+    @GetMapping("/movieTrailer")
+    public String getMovieTrailer(Model model, @RequestParam(name = "id") String id, HttpSession session) {
+
+        if (session.getAttribute("loggedInUser") != null) {
+
+            User u = (User) session.getAttribute("loggedInUser");
+
+
+            int movieId = Integer.parseInt(id);
+
+            session.setAttribute("chat_room_id",id);
+
+            List<MovieTrailer> trailers = movieService.getTrailer(movieId);
+
+            if (trailers.isEmpty()) {
+
+                return "noVideo";
+            }
+            model.addAttribute("trailers", trailers);
+
+            MovieDbByMovieId movieDbByMovieId = movieService.getMoviesByMovieId(movieId);
+            model.addAttribute("movieName", movieDbByMovieId.getTitle());
+
+            log.info("User {} clicked to watch movie videos on {}", u.getUsername(), movieDbByMovieId.getTitle());
+
+            return "videos";
+
+        }
+
+        return "notValidUser";
+    }
+
+
+
+
+    /**
+     * View movies by the genre id
+     *
+     * @param session holds the users logged information
+     * @param model   holds the information for the view
+     * @param id      is the genre id being searched
+     * @return
+     */
+
+    @GetMapping("/viewMovieByGenre")
+    public String viewMovieGenre(HttpSession session, Model model, @RequestParam(name = "id") int id) {
+
+        if (session.getAttribute("loggedInUser") != null) {
+
+            User u = (User) session.getAttribute("loggedInUser");
+
+
+            String genre_id = Integer.toString(id);
+
+            session.setAttribute("genreId2", genre_id);
+
+            List<GenreTest> genres = movieService.getGenres();
+            model.addAttribute("genres", genres);
+
+            List<MovieTest> movieByGenres = movieService.getMoviesByGenre(genre_id);
+
+            List<MovieTest> newMovie = new ArrayList<>();
+
+            for (int i = 0; i < movieByGenres.size() - 2; i++) {
+
+                if (movieByGenres.get(i).getBackdrop_path() != null) {
+                    newMovie.add(movieByGenres.get(i));
+                    model.addAttribute("movieByGenres", newMovie);
+                }
+            }
+
+            GenreDao genreDao = new GenreDaoImpl("database.properties");
+
+            GenreTest genre = genreDao.getGenreById(id);
+            model.addAttribute("genreName", genre.getName());
+            log.info("User {} viewed movies on genre {}", u.getUsername(), genre.getName());
+
+            viewMoviesByGenre(session, model);
+
+            return "movie_index";
+
+        }
+
+        return "notValidUser";
+    }
+
+
+    @GetMapping("/viewMovieBySearchOnParticularGenre")
+    public String viewMovieBySearchOnParticularGenre(HttpSession session, Model model, @RequestParam(name = "query") String query) {
+
+
+        if (session.getAttribute("loggedInUser") != null) {
+
+            User u = (User) session.getAttribute("loggedInUser");
+
+            session.setAttribute("query", query);
+
+            List<MovieTest> movieBySearch = movieService.getMoviesBySearch(query);
+
+            System.out.println(movieBySearch);
+
+            List<MovieTest> newMovieBySearch = new ArrayList<>();
+
+            for (int i = 0; i < movieBySearch.size(); i++) {
+                if (movieBySearch.get(i).getBackdrop_path() != null) {
+                    newMovieBySearch.add(movieBySearch.get(i));
+                    model.addAttribute("movieBySearchGenre", newMovieBySearch);
+                }
+
+            }
+
+            model.addAttribute("query", query);
+
+            log.info("User {} searched for movies on {}", u.getUsername(), query);
+
+            viewMoviesByGenre(session, model);
+
+            return "searchMovie_index";
+
+        }
+
+        return"notValidUser";
+    }
+
+
+    /**
+     * View movies by what is searched in the search bar
+     *
+     * @param session holds the users logged information
+     * @param model   holds the information for the view
+     * @param query   is the movie being searched
+     * @return the search index page
+     */
+    @GetMapping("/viewMovieBySearch")
+    public String viewMovieBySearch(HttpSession session, Model model, @RequestParam(name = "query") String query) {
+
+
+        if (session.getAttribute("loggedInUser") != null) {
+
+            User u = (User) session.getAttribute("loggedInUser");
+
+            session.setAttribute("query1", query);
+
+            List<MovieTest> movieBySearch = movieService.getMoviesBySearch(query);
+
+            List<MovieTest> newMovieBySearch = new ArrayList<>();
+
+            for (int i = 0; i < movieBySearch.size() - 2; i++) {
+
+                if (movieBySearch.get(i).getBackdrop_path() != null) {
+                    newMovieBySearch.add(movieBySearch.get(i));
+                    model.addAttribute("movieBySearch", newMovieBySearch);
+                }
+            }
+
+            model.addAttribute("query", query);
+
+            log.info("User {} searched for movies on {}", u.getUsername(), query);
+
+            return "search_index";
+
+        }
+
+        return "notValidUser";
+    }
+
+    private void viewMoviesByGenre(HttpSession session, Model model) {
+        User u = (User) session.getAttribute("loggedInUser");
+
+        List<GenreTest> genres = movieService.getGenres();
+        model.addAttribute("genres", genres);
+
+        GenreDao genreDao = new GenreDaoImpl("database.properties");
+
+        String genreId = (String) session.getAttribute("genreId2");
+
+        if (genreId != null) {
+
+            List<MovieTest> movieByGenres = movieService.getMoviesByGenre(genreId);
+
+            List<MovieTest> newMovie = new ArrayList<>();
+
+            for (int i = 0; i < movieByGenres.size() - 2; i++) {
+
+                if (movieByGenres.get(i).getBackdrop_path() != null && movieByGenres.get(i).getGenre_ids().length > 0) {
+                    movieByGenres.get(i).setGenreName(genreDao.getGenreById(Integer.parseInt(genreId)).getName());
+                    newMovie.add(movieByGenres.get(i));
+                    model.addAttribute("movieByGenres", newMovie);
+                }
+            }
+
+            // genre by id and get the name
+
+            // use a session for this based on the controller method view movie by genre, testing branch
+
+
+            GenreTest genre = genreDao.getGenreById(Integer.parseInt(genreId));
+
+            model.addAttribute("genreName", genre.getName());
+
+        } else {
+
+            toViewMoviesByGenreMovieIndex(model, session);
+        }
+
+    }
+
+
+    private void toViewMoviesByGenreMovieIndex(Model model, HttpSession session){
+
+        User u = (User) session.getAttribute("loggedInUser");
+
+
+
+        List<GenreTest> genres = movieService.getGenres();
+        model.addAttribute("genres", genres);
+
+
+        List<MovieTest> movieByGenres = movieService.getMoviesByGenre("878");
+
+        List<MovieTest> newMovie = new ArrayList<>();
+
+        for (int i = 0; i < movieByGenres.size() - 2; i++) {
+
+            if (movieByGenres.get(i).getBackdrop_path() != null) {
+                newMovie.add(movieByGenres.get(i));
+                model.addAttribute("movieByGenres", newMovie);
+            }
+
+        }
+
+        // genre by id and get the name
+
+        GenreDao genreDao = new GenreDaoImpl("database.properties");
+
+        GenreTest genre = genreDao.getGenreById(878);
+
+        model.addAttribute("genreName", genre.getName());
+    }
+
+
+
+
+
+}
