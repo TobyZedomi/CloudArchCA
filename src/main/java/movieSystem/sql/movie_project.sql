@@ -18,3 +18,11 @@ CREATE TABLE users
     user_image     varchar(255) NOT NULL,
     PRIMARY KEY (username)
 );
+
+
+CREATE TABLE genre
+(
+    id   INT(255),
+    name VARCHAR(255),
+    PRIMARY KEY (id)
+);
