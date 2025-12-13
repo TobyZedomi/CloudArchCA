@@ -1,0 +1,356 @@
+package movieSystem.controller;
+
+
+import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.mindrot.jbcrypt.BCrypt;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+import movieSystem.business.*;
+import movieSystem.persistence.*;
+import org.springframework.ui.Model;
+import movieSystem.service.MovieService;
+
+
+import java.io.File;
+import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.security.spec.InvalidKeySpecException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+@Slf4j
+@Controller
+@RequiredArgsConstructor
+@Component
+public class UserController {
+
+    @Autowired
+    private MovieService movieService;
+
+
+
+    // register
+
+    /**
+     *
+     * @param username is the usernae being enetered
+     * @param displayName is teh display name being enetered
+     * @param email is the email being enetered
+     * @param password is the password being enetered
+     * @param password2 is the password being entered to be confirmed
+     * @param dateOfBirth is the date of birth being enetered
+     * @param model holds the attributes f or the view
+     * @param session holds the logged-in users sessions
+     * @return page to purchase subscription if successfully but if validation is wrong it will stay on the registration page
+     * @throws InvalidKeySpecException
+     * @throws NoSuchAlgorithmException
+     */
+
+    @PostMapping("registerUser")
+    public String registerUser(
+            @RequestParam(name="username") String username,
+            @RequestParam(name="displayName") String displayName,
+            @RequestParam(name="email") String email,
+            @RequestParam(name="password") String password,
+            @RequestParam(name="password2") String password2,
+            @RequestParam(name="dateOfBirth") String dateOfBirth,
+            Model model, HttpSession session) throws InvalidKeySpecException, NoSuchAlgorithmException {
+
+        // VALIDATION
+
+
+        // username validation
+
+        if (username.isBlank()){
+            String message = "Username was left blank";
+            model.addAttribute("message", message);
+            System.out.println("Username was left blank");
+
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            return "user_indexSignUp";
+        }
+
+        Pattern usernameRegex = Pattern.compile("^[a-zA-Z]{3,25}$");
+        Matcher match = usernameRegex.matcher(username);
+        boolean matchfoundUsername = match.find();
+
+        if (!matchfoundUsername){
+            String message = "Username must be between 3-25 characters, letters only";
+            model.addAttribute("message", message);
+            System.out.println("Username must be between 3-25 characters, letters only");
+
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+            return "user_indexSignUp";
+        }
+
+        // displayName validation
+
+        if (displayName.isBlank()){
+
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Display Name was left blank");
+            return "user_indexSignUp";
+        }
+
+        Pattern displayNameRegex = Pattern.compile("^[a-zA-Z0-9]{3,25}$");
+        Matcher match2 = displayNameRegex.matcher(displayName);
+        boolean matchfoundDisplayName= match2.find();
+
+        if (!matchfoundDisplayName){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Display Name must be between 3-25 characters and only letters and numbers");
+            return "user_indexSignUp";
+        }
+
+        // email validation
+
+        if(email.isBlank()){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Email was left blank");
+            return "user_indexSignUp";
+        }
+
+        // password validation
+
+        if (password.isBlank()){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Password was left blank");
+
+            return "user_indexSignUp";
+        }
+
+        Pattern passwordRegex = Pattern.compile("^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{7,70}$");
+        Matcher match1 = passwordRegex.matcher(password);
+        boolean matchfoundPassword = match1.find();
+
+        if (!matchfoundPassword){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Password must have at least 7 characters and maximum 70 characters, one uppercase letter, one lowercase letter and one number");
+            return "user_indexSignUp";
+        }
+
+        if (password2.isBlank()){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Confirm password was left blank");
+            return "user_indexSignUp";
+        }
+
+        if (!password.equals(password2)){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Passwords dont match");
+            return "user_indexSignUp";
+        }
+
+        // dateOfBirth validation
+
+        if (dateOfBirth.isBlank()){
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Date of birth was left blank");
+            return "user_indexSignUp";
+        }
+
+        LocalDate dob = LocalDate.parse(dateOfBirth);
+        LocalDate today = LocalDate.now();
+
+        if (!dob.isBefore(today.minusYears(12))){
+
+            modelAttributeForRegister(username, displayName, email, password, password2, dateOfBirth, model);
+
+            System.out.println("Date Of Birth has to be 12 years old or over");
+            return "user_indexSignUp";
+        }
+
+        String view = "";
+        String image = "DefaultUserImage.jpg";
+        UserDao userDao = new UserDaoImpl("database.properties");
+
+        User u = new User(username, displayName, email, password, dob, false, LocalDateTime.now(),image );
+        int added = userDao.registerUser(u);
+        if(added == 1){
+
+
+            view = "registerSuccess";
+            model.addAttribute("registeredUser", u);
+            session.setAttribute("loggedInUser", u);
+            log.info("User {} registered", u.getUsername());
+
+        }else{
+            view = "registerFailed";
+            log.info("Registration failed with username {}", username);
+        }
+
+
+        return view;
+    }
+
+    private static void modelAttributeForRegister(String username, String displayName, String email, String password, String password2, String dateOfBirth, Model model) {
+        model.addAttribute("username", username);
+        model.addAttribute("displayName", displayName);
+        model.addAttribute("email", email);
+        model.addAttribute("password", password);
+        model.addAttribute("password2", password2);
+        model.addAttribute("dateOfBirth", dateOfBirth);
+    }
+
+
+    /**
+     * This method is used to log in the user to the system and if the user doesn't have a subscription or subscription has expired they wont be able to login
+     * @param username1 is the username being searched
+     * @param password1 is the password being searched
+     * @param model stores data of the message to display no such username/password
+     * @param session holds the users information if the login is a success
+     * @return loginFailed page if the login isn't successful, addSubscription page if the user doesn't have a subscription with us, renewSubscription page if user subscription is ended and needs a renewal or loginSuccessful page to the system if users credentials match
+     * @throws InvalidKeySpecException if something goes wrong with hashing password
+     * @throws NoSuchAlgorithmException if something goes wrong with hashing password
+     */
+    @PostMapping("/login")
+    public String loginUser(
+            @RequestParam(name="username1")String username1,
+            @RequestParam(name="password1") String password1,
+            Model model, HttpSession session) throws InvalidKeySpecException, NoSuchAlgorithmException {
+
+        if(username1.isBlank() || password1.isBlank()){
+            System.out.println("Username or password was left blank");
+            return "user_index";
+        }
+
+        UserDao userDao = new UserDaoImpl("database.properties");
+        User user = userDao.findUserByUsername(username1);
+
+
+        if(user == null){
+            String message = "No such username/password combination, try again....";
+            model.addAttribute("message", message);
+            log.info("Login failed with username {}", username1);
+            return "loginFailed";
+        }
+
+        if (checkPassword(password1, user.getPassword()) == true && username1.equals(user.getUsername())) {
+            session.setAttribute("loggedInUser", user);
+            // between this line get list of movies from movie db
+            // model .add attribute here for list of movies form movie db
+            mostPopularMoviesMovieDbApi(model, session);
+            log.info("User {} log into system", user.getUsername());
+
+            return "loginSuccessful";
+        }
+
+        String message = "No such username/password combination, try again....";
+        model.addAttribute("message", message);
+        log.info("Login failed with username {}", username1);
+        return "loginFailed";
+    }
+
+
+
+    private void mostPopularMoviesMovieDbApi(Model model, HttpSession session) {
+        if (session.getAttribute("loggedInUser") != null) {
+
+            // favourite list session
+            User u = (User) session.getAttribute("loggedInUser");
+
+            /// movie db get most popular movies
+
+            List<MovieTest> movies = movieService.getMovies();
+
+            // create new list to add the movies from the movie db into
+            List<MovieTest> newMovie = new ArrayList<>();
+
+            GenreDao genreDao = new GenreDaoImpl("database.properties");
+
+
+            // loop through the movie db list and reduce the size by 2
+            for (int i = 0; i < movies.size() - 2; i++) {
+
+                // if any backdrop image is unavailable it will not add it to the new arraylist
+                if (movies.get(i).getBackdrop_path() != null && movies.get(i).getGenre_ids().length > 0) {
+                    movies.get(i).setGenreName(genreDao.getGenreById(Integer.parseInt(movies.get(i).getGenre_ids()[0])).getName());
+                    // add the movies from the movie db into the new arraylist
+                    newMovie.add(movies.get(i));
+                    // newMovie.get(i).setGenreName(genreDao.getGenreById(Integer.parseInt(movies.get(i).getGenre_ids()[0])).getName());
+                    model.addAttribute("movies", newMovie);
+                }
+            }
+
+            for (int i = 0; i < movies.size(); i++) {
+
+                List<MovieTrailer> trailers = movieService.getTrailer(movies.get(i).getId());
+                model.addAttribute("trailers", trailers);
+            }
+        }
+
+    }
+
+
+    ///logout
+
+    /**
+     * End the users session in the system
+     * @param session is the session being searched to terminate
+     * @return to user_index page to log in or register
+     */
+
+    @GetMapping("/logOut")
+    public String logOut(HttpSession session, Model model){
+        if (session.getAttribute("loggedInUser") != null) {
+            User u = (User) session.getAttribute("loggedInUser");
+
+
+
+            if (session != null) {
+                session.invalidate();
+                log.info("User {} logged out of system", u.getUsername());
+            }
+
+            String message = "You have logged out of the system "+ u.getUsername();
+            model.addAttribute("messageLogOut", message);
+
+            return "user_index";
+        }
+
+        return "notValidUser";
+    }
+
+
+
+    ////// bcrypt
+
+    /**
+     * Check if password entered by user matches the hashed password
+     * @param password_plaintext is the password being checked against the stored hash
+     * @param stored_hash is the stored hash password being checked against the plaintext
+     * @return true if a match and false if not a match
+     */
+    public static boolean checkPassword(String password_plaintext, String stored_hash) {
+        boolean password_verified = false;
+
+        if(null == stored_hash || !stored_hash.startsWith("$2a$"))
+            throw new java.lang.IllegalArgumentException("Invalid hash provided for comparison");
+
+        password_verified = BCrypt.checkpw(password_plaintext, stored_hash);
+
+        return(password_verified);
+    }
+
+
+}
