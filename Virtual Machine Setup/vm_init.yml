@@ -1,0 +1,107 @@
+#cloud-config
+package_upgrade: true
+packages:
+  - openjdk-17-jdk
+  - mysql-server
+  - mysql-client
+write_files:
+  - owner: developer:developer
+    path: /home/developer/cloud_init_done.txt
+    defer: true
+    content: |
+        Cloud init work is done!
+  
+
+  - owner: developer:developer
+    path: /home/developer/movieDatabase.sql
+    permissions: '0644'
+    defer: true
+    content: | 
+
+      CREATE DATABASE movie_project;
+      Use movie_project;
+
+      CREATE TABLE users
+      (
+          username    varchar(50) UNIQUE  NOT NULL,
+          displayName varchar(50)         NOT NULL,
+          email       varchar(255) UNIQUE NOT NULL,
+          password    varchar(255)        NOT NULL,
+          dateOfBirth DATE                NOT NULL,
+          isAdmin     boolean             NOT NULL DEFAULT false,
+          createdAt   datetime            NOT NULL,
+          user_image     varchar(255) NOT NULL,
+          PRIMARY KEY (username)
+      );
+
+
+      CREATE TABLE genre
+      (
+         id   INT(255),
+         name VARCHAR(255),
+         PRIMARY KEY (id)
+      );
+
+      CREATE USER 'developer'@'localhost' IDENTIFIED BY 'developer123';
+
+      GRANT ALL PRIVILEGES ON *.* TO 'developer'@'localhost'; 
+
+
+  - owner: developer:developer
+    path:  /home/developer/movieDatabaseDataSet.sql
+    defer: true
+    content: |    
+
+
+      INSERT INTO `users` (`username`, `displayName`, `email`, `password`, `dateOfBirth`, `isAdmin`, `createdAt`, `user_image`) VALUES
+      ('admin', 'adminUser123', 'tobyzedo7@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2003-02-16', 1, '2025-01-30 00:00:00', 'DefaultUserImage.jpg'),
+      ('Alice', 'Alice', 'alicecunninghammorgan@hotmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2000-11-13', 0, '2025-03-03 23:24:22', 'DefaultUserImage.jpg'),
+      ('Andrew', 'andrewGamer123', 'andrew@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2000-12-10', 0, '2025-01-30 00:00:00', 'DefaultUserImage.jpg'),
+      ('James', 'james123', 'james@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '1999-11-18', 0, '2025-01-30 00:00:00', 'DefaultUserImage.jpg'),
+      ('Kate', 'kate123', 'kate@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2001-12-08', 0, '2025-01-30 00:00:00', 'DefaultUserImage.jpg'),
+      ('Kevin', 'Kevin', 'Kevin@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2003-11-13', 1, '2025-03-03 18:26:25', 'DefaultUserImage.jpg'),
+      ('Toby', 'toby123', 'toby@gmail.com', '$2a$12$x4EwpUD5VU.vJW1.xICz1OnEJqEMfdYx/ttl/Gi/JxljZAsguzqbi', '2001-12-08', 0, '2025-01-30 00:00:00', 'DefaultUserImage.jpg');
+
+      INSERT INTO `genre` (`id`, `name`)VALUES 
+      (28, 'Action'),
+      (12, 'Adventure'),
+      (16, 'Animation'),
+      (35, 'Comedy'),
+      (80, 'Crime'),
+      (99, 'Documentary'),
+      (18, 'Drama'),
+      (10751, 'Family'),
+      (14, 'Fantasy'),
+      (36, 'History'),
+      (27, 'Horror'),
+      (10402, 'Music'),
+      (9648, 'Mystery'),
+      (10749, 'Romance'),
+      (878, 'Science Fiction'),
+      (10770, 'TV Movie'),
+      (53, 'Thriller'),
+      (10752, 'War'),
+      (37, 'Western');
+
+  - owner: developer:developer
+    path:  /home/developer/database.properties
+    defer: true
+    content: |     
+      driver=com.mysql.cj.jdbc.Driver
+      url=jdbc:mysql://localhost:3306/
+      database=movie_project
+      username=developer
+      password=developer123
+
+runcmd:
+  - systemctl enable mysql
+  - systemctl start mysql
+  - mkdir -p /home/developer/holdJar
+  - chown -R developer:developer /home/developer/holdJar
+  - mysql < /home/developer/movieDatabase.sql
+  - mysql movie_project<  /home/developer/movieDatabaseDataSet.sql
+
+
+
+
+  
