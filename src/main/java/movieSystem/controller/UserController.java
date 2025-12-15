@@ -192,6 +192,7 @@ public class UserController {
             view = "registerSuccess";
             model.addAttribute("registeredUser", u);
             session.setAttribute("loggedInUser", u);
+            mostPopularMoviesMovieDbApi(model, session);
             log.info("User {} registered", u.getUsername());
 
         }else{
